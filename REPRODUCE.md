@@ -10,29 +10,32 @@ This is a guide to *this* fine-tune. The recipe underneath it is
 ## 0. What you need
 
 - A CUDA GPU with **24 GB**. Batch size 3 peaks around 20 GB and climbs during a
-  run — an early 13.6 GB reading is not the peak. Batch 4 OOMs. The recipe's
-  "batch_size=4 works on 12 GB" does not survive this corpus's clip lengths.
+  run — an early 13.6 GB reading is not the peak. Batch 4 completes stage 1 and
+  then dies partway through stage 2.
 - The **Alba speech corpus**: https://doi.org/10.7488/ds/2506 (CC BY 4.0).
   The ~4-hour "plain" read set is the 4,613 clips used here.
-- A checkout of kikiri-tts with its submodules.
+
+## 1. Clone the recipe
+
+The recipe is [kikiri-tts](https://github.com/semidark/kikiri-tts) by semidark —
+a **German** Kokoro fine-tuning recipe. Our English/Scottish changes are already
+committed to a fork, so this is one command:
 
 ```bash
-git clone --recurse-submodules https://github.com/semidark/kikiri-tts
+git clone --branch alba-english --recurse-submodules \
+    https://github.com/a-mcf/kikiri-tts
 export KIKIRI_ROOT=$PWD/kikiri-tts
 ```
 
-## 1. Apply this project's changes to the recipe
+Nothing to copy in, nothing to patch. Submodules are pinned:
+`a-mcf/StyleTTS2 @ alba-english` and `semidark/kokoro @ b96fef9`.
 
-kikiri-tts is a German recipe. Four changes make it English and Scottish; details
-and rationale in [`training/README.md`](training/README.md).
+What changed from upstream, and why, is in
+[`training/README.md`](training/README.md) — with a one-click diff against
+`semidark/kikiri-tts@a12d041`.
 
-```bash
-cp training/config_alba_ft.yml  "$KIKIRI_ROOT/configs/"
-cp training/OOD_texts.txt       "$KIKIRI_ROOT/training/"
-cp training/verify_alignment.py "$KIKIRI_ROOT/checks/"
-cp training/test_alba.py        "$KIKIRI_ROOT/scripts/"
-git -C "$KIKIRI_ROOT/StyleTTS2" apply "$OLDPWD/training/kokoro_tb_utils.english.patch"
-```
+Then set up the training environment per the recipe's own `AGENTS.md` and
+`docs/TRAINING_GUIDE.md`, which remain the authority on the training machinery.
 
 ## 2. Bring in the dataset
 
@@ -65,7 +68,8 @@ word is doing; the bug that made it necessary is worth two minutes of your time.
 ⚠️ **Do not use the recipe's `scripts/prepare_dataset.py` here.** That is a
 Polly-MP3-plus-Whisper transcription pipeline for German — it filters on
 `TARGET_LANGUAGE = "de"` and expects a `cache/` of MP3s. The Alba corpus ships
-ground-truth transcripts, so none of that applies.
+ground-truth transcripts, so none of that applies. (It is upstream's, left
+untouched in the fork.)
 
 If you do want to regenerate `phonemes.csv` from the corpus `txt/` files, the G2P
 config must match inference exactly, or the labels will not be the ones the

@@ -33,7 +33,10 @@ derogatory to the voice talent. These weights inherit that.
 
 The training recipe is [kikiri-tts](https://github.com/semidark/kikiri-tts) by
 semidark — a *German* Kokoro fine-tuning recipe. All the structural work is theirs.
-This project adapted it to English and to a Scottish speaker.
+This project adapted it to English and to a Scottish speaker; those changes live
+as real commits in [a-mcf/kikiri-tts@alba-english](https://github.com/a-mcf/kikiri-tts/tree/alba-english),
+so upstream's history and authorship stay intact and our diff is
+[one link](https://github.com/semidark/kikiri-tts/compare/a12d041...a-mcf:kikiri-tts:alba-english).
 
 The corpus audio is **not** redistributed here. Fetch it from the DOI.
 
@@ -44,7 +47,7 @@ The corpus audio is **not** redistributed here. Fetch it from the DOI.
 | `alba/` | the runtime. Drop `alba_stock.pth` in beside these and it works. |
 | `tools/` | checkpoint conversion, voicepack pitch scaling, load verification |
 | `calibration/` | the measurement scripts that produced the two shipped constants |
-| `training/` | diffs and configs against kikiri-tts, the pre-flight guard, and the generated train/val lists |
+| `training/` | the train/val lists, corpus prep, launchers — and a pointer to the recipe fork |
 | `dataset/` | the phoneme and transcript CSVs this fine-tune was built from |
 | `samples/` | three renders, so you can hear it before installing anything |
 
@@ -162,7 +165,10 @@ Two things worth carrying forward:
 ### 3. Fixed the recipe's German assumptions
 
 kikiri-tts is a German recipe. Adapting it to English needed more than a config
-change — see [`training/README.md`](training/README.md). The one worth naming here:
+change, and those changes are committed to a fork —
+`git clone --branch alba-english --recurse-submodules https://github.com/a-mcf/kikiri-tts`
+is the whole setup. See [`training/README.md`](training/README.md). The one worth
+naming here:
 `StyleTTS2/kokoro_tb_utils.py` held German test sentences, phonemized with
 espeak-de, and that file drives the per-epoch TensorBoard audio previews for both
 training stages. Every "listen as it trains" sample was grading an English model on

@@ -50,18 +50,26 @@ TRAINING RECIPE
   kikiri-tts is a GERMAN Kokoro fine-tuning recipe. Everything structural here
   is theirs: dataset preparation, voicepack extraction, the two-stage training
   driver, the training guide. This project adapted it to English and to a
-  Scottish speaker. The files under training/ are diffs and configs against
-  that recipe, not a replacement for it.
+  Scottish speaker.
 
-  kokoro — inference package
-  Source:  https://github.com/hexgrad/kokoro
-  License: Apache License 2.0
+  Those changes are published as a fork rather than copied out, so upstream's
+  commit history and authorship remain intact:
+    https://github.com/a-mcf/kikiri-tts       branch alba-english
+    forked from semidark/kikiri-tts @ a12d041
 
   StyleTTS2 — training architecture
   Source:  https://github.com/yl4579/StyleTTS2
   Fork:    https://github.com/semidark/StyleTTS2
+  Ours:    https://github.com/a-mcf/StyleTTS2  branch alba-english
+           (forked from semidark/StyleTTS2 @ b1956da; one commit, making the
+           TensorBoard preview sentences English)
   License: MIT License
   Author:  Yinghao Aaron Li (yl4579)
+
+  kokoro — inference package
+  Source:  https://github.com/hexgrad/kokoro
+  Pinned:  semidark/kokoro @ b96fef9 (unmodified by this project)
+  License: Apache License 2.0
 
 ================================================================================
 PRIOR ART ON THE SAME SPEAKER

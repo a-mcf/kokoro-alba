@@ -1,66 +1,97 @@
-# Changes to the kikiri-tts recipe
+# Training side
 
-[kikiri-tts](https://github.com/semidark/kikiri-tts) is a **German** Kokoro
-fine-tuning recipe. These are the files that make it English and Scottish. They
-are diffs and drop-ins against that repo, not a standalone training system —
-clone it, then apply these.
+The recipe with our changes already applied lives in its own fork:
 
-| file | goes to | what |
-|---|---|---|
-| `config_alba_ft.yml` | `configs/` | training config for this corpus and a 24 GB card |
-| `OOD_texts.txt` | `training/` | English out-of-distribution sentences |
-| `kokoro_tb_utils.english.patch` | `StyleTTS2/` | English TensorBoard preview sentences |
-| `verify_alignment.py` | `checks/` | pre-flight guard on text↔audio pairing |
-| `test_alba.py` | `scripts/` | convert-and-synthesize a checkpoint |
-| `run_stage1.sh`, `run_stage2.sh` | anywhere | launchers; set `KIKIRI_ROOT` |
-| `prepare_corpus.py` | run in place | corpus download -> 24 kHz training audio |
-| `check_corpus.py` | run in place | confirms the lists resolve against that audio |
-| `train_list.txt`, `val_list.txt` | `training/` | the **repaired** splits, 4,383 + 230 |
-
-The two list files are the actual ones this fine-tune trained on, committed so you
-do not have to regenerate them. Their phoneme source is
-[`../dataset/phonemes.csv`](../dataset/). Format is
-`path|phonemes|speaker_id`; paths are relative to `dataset/audio/`.
-
-## The German recipe leaks in more places than you would expect
-
-Assume more than are listed here.
-
-**`OOD_texts.txt` was 20 German sentences.** It feeds stage 2's SLM adversarial
-loss, so a German out-of-distribution set was steering the discriminator on an
-English model. Replaced with English.
-
-**`StyleTTS2/kokoro_tb_utils.py` held German `TEST_SENTENCES`, phonemized with
-espeak-de.** That file drives the per-epoch TensorBoard audio previews for *both*
-stages. Every "listen as it trains" sample in every run was grading an English
-model on German text through the wrong phoneme alphabet — which is why the built-in
-previews could never have caught a corpus problem. The patch swaps in English
-sentences matched to the corpus domain and phonemizes them with
-`misaki en.G2P(british=True)`, the same G2P as the training labels. Verified 7/7
-sentences with zero out-of-vocabulary characters.
-
-**`scripts/prepare_dataset.py` and `scripts/prepare_training.py` hardcode
-`EspeakG2P(language="de")`.** Inert on the English path as used here, but live
-traps if you edit around them.
-
-## `verify_alignment.py`
-
-Run it from the recipe root before every training launch:
+**https://github.com/a-mcf/kikiri-tts** — branch `alba-english`
 
 ```bash
-./.venv/bin/python checks/verify_alignment.py
+git clone --branch alba-english --recurse-submodules \
+    https://github.com/a-mcf/kikiri-tts
 ```
 
-It refuses to certify a dataset whose entries do not carry their own phonemes, and
-exits non-zero so it can gate a launcher.
+That is the whole setup. Nothing to copy in, nothing to patch. It pulls
+`a-mcf/StyleTTS2 @ alba-english` and `semidark/kokoro @ b96fef9` as submodules,
+both pinned.
 
-It exists because a full 10-epoch stage 2 run — 13 hours — was wasted on a
+## What this directory holds
+
+The fork carries the *code* changes. These are the things that are ours and are
+not part of a recipe:
+
+| file | what |
+|---|---|
+| `train_list.txt`, `val_list.txt` | the **repaired** splits, 4,383 + 230 (the recipe gitignores these) |
+| `prepare_corpus.py` | corpus download → 24 kHz training audio |
+| `check_corpus.py` | confirms the lists resolve against that audio before you train |
+| `run_stage1.sh`, `run_stage2.sh` | launchers; set `KIKIRI_ROOT` |
+
+The two list files are the ones this fine-tune actually trained on. Their
+phoneme source is [`../dataset/phonemes.csv`](../dataset/); format is
+`path|phonemes|speaker_id`, paths relative to `dataset/audio/`.
+
+## What changed in the recipe, and why
+
+Upstream is [`semidark/kikiri-tts`](https://github.com/semidark/kikiri-tts), a
+**German** Kokoro fine-tuning recipe. Everything structural is theirs. The full
+diff is one link each:
+
+- recipe: [`semidark/kikiri-tts@a12d041 … a-mcf:alba-english`](https://github.com/semidark/kikiri-tts/compare/a12d041...a-mcf:kikiri-tts:alba-english)
+- training code: [`semidark/StyleTTS2@b1956da … a-mcf:alba-english`](https://github.com/semidark/StyleTTS2/compare/b1956da...a-mcf:StyleTTS2:alba-english)
+
+**`configs/config_alba_ft.yml`** — English config for a 24 GB card.
+`batch_size: 3`, not 4. Batch 4 completes stage 1 and then dies partway through
+stage 2, which is the memory-hungrier stage; 3 peaks around 20 GB of 24 and
+climbs during the run, so an early reading is not the peak. `save_freq: 1`,
+because an even `epochs_2nd` with `save_freq: 2` writes only even indices and
+silently discards the final epoch.
+
+**`training/OOD_texts.txt`** — was 20 German sentences. It feeds stage 2's SLM
+adversarial loss, so a German out-of-distribution set was steering the
+discriminator on an English model.
+
+**`StyleTTS2/kokoro_tb_utils.py`** — the per-epoch TensorBoard audio previews,
+for both stages, were German rendered through espeak-de. Every "listen as it
+trains" sample in every run was grading an English model on German through the
+wrong phoneme alphabet.
+
+**`checks/verify_alignment.py`** — a pre-flight guard, described below.
+
+Two traps remain in the recipe and are not ours to fix.
+`scripts/prepare_dataset.py` and `scripts/prepare_training.py` hardcode
+`EspeakG2P(language="de")` — inert on the path used here, but live traps if you
+edit around them. And `prepare_dataset.py` as a whole is a Polly-MP3-plus-Whisper
+pipeline filtering on `TARGET_LANGUAGE = "de"`; it does not apply to a corpus
+that ships ground-truth transcripts.
+
+## Run the guard before you train
+
+```bash
+cd <kikiri-tts> && ./.venv/bin/python checks/verify_alignment.py
+```
+
+It refuses to certify a dataset whose entries do not carry their own phonemes,
+and exits non-zero so it can gate a launcher. `check_corpus.py` here does the
+same job against this repo's committed lists.
+
+It exists because a full 10-epoch stage 2 run — 13 hours — was lost to a
 `train_list.txt` in which **4,613 of 4,613 entries carried a different clip's
-phonemes**. Training converged. Validation loss looked survivable. The output was
-crisp audio in the correct voice, and it was not English. The only signal in the
-logs was `Dur` and `F0` losses stalling high.
+phonemes**. Training converged. Validation loss looked survivable. The output
+was crisp audio in the correct voice, and it was not English. The only signal in
+the logs was `Dur` and `F0` losses stalling high.
 
-### The bug, because it will happen to someone else
+Two independent checks, because either alone can be fooled:
+
+1. **Exact re-pair** against `dataset/phonemes.csv` — catches any mismatch, but
+   is blind to a `phonemes.csv` that is itself wrong.
+2. **Correlation of phoneme-string length against audio duration** — a correct
+   TTS corpus sits near **+0.95**, random pairing near **0**. Fails below 0.90.
+
+Applied stage by stage, check 2 isolates the broken step exactly. On the
+corrupted run: metadata↔audio +0.970, phonemes↔audio +0.972, phonemes↔metadata
++0.994, train_list↔source **−0.061**. Every stage clean except the last. The
+technique is not specific to TTS — it works on any paired-data pipeline.
+
+### The bug, so nobody writes it again
 
 The list builder shuffled two parallel lists to make the train/val split:
 
@@ -70,57 +101,19 @@ rng.shuffle(meta_rows)   # permutation A
 rng.shuffle(pho_rows)    # permutation B -- the generator has advanced!
 ```
 
-One seeded generator, two `shuffle` calls, **two different permutations**. Seeding
-makes a run repeatable; it does not make consecutive draws identical. After those
-two lines `meta_rows[i]` and `pho_rows[i]` describe different clips, and zipping
-them produces a filename from one utterance with the phonemes of another — for
+One seeded generator, two `shuffle` calls, **two different permutations**.
+Seeding makes a run repeatable; it does not make consecutive draws identical.
+After those two lines `meta_rows[i]` and `pho_rows[i]` describe different clips,
+and zipping them pairs one utterance's filename with another's phonemes — for
 every row.
 
-The author had noticed the risk and written a fix immediately below:
+The correct pattern — shuffle an index, apply it to both — was already written
+directly below, but it ran *after* the damage, so it permuted the mismatch
+instead of repairing it.
 
-```python
-idx = list(range(len(meta_rows)))
-random.Random(42).shuffle(idx)
-meta_rows = [meta_rows[i] for i in idx]
-pho_rows  = [pho_rows[i] for i in idx]
-```
+`metadata.csv` and `phonemes.csv` were both fine throughout, because each row
+kept its own filename with its own content. Only the zip of the two was wrong.
+That is why every check on the inputs passed.
 
-That is the correct pattern — shuffle an index, apply it to both. It just ran
-*after* the damage, on lists that were already desynchronised, so it permuted the
-mismatch rather than repairing it.
-
-Two things made this survive to a 13-hour run:
-
-- **`metadata.csv` and `phonemes.csv` were both fine.** Each row kept its own
-  filename with its own content, so every check on those files passed. Only the
-  zip of the two lists was wrong. Measured stage by stage: metadata↔audio +0.970,
-  phonemes↔audio +0.972, phonemes↔metadata +0.994, and **train_list↔source −0.061**.
-- **The TensorBoard previews could not have caught it**, because they were
-  rendering German sentences through espeak-de at the time — see above.
-
-The general lesson is the one `verify_alignment.py` encodes: **a paired-data
-pipeline needs a check that the pairing survived, and it has to run on the file
-training actually reads**, not on the inputs that fed it.
-
-Two independent checks, because either alone can be fooled:
-
-1. **Exact re-pair** against `dataset/phonemes.csv` — catches any mismatch, but is
-   blind to a `phonemes.csv` that is itself wrong.
-2. **Correlation of phoneme-string length against audio duration** — a correct TTS
-   corpus sits near **+0.95**, random pairing near **0**. Catches a bad
-   `phonemes.csv`. Fails below 0.90.
-
-Applied stage by stage, check 2 isolates the broken step exactly. On the corrupted
-run: metadata↔audio +0.970, phonemes↔audio +0.972, phonemes↔metadata +0.994,
-train_list↔source **−0.061**. Every stage clean except the last one. The technique
-is not specific to TTS — it works on any paired-data pipeline.
-
-## `config_alba_ft.yml` notes
-
-- `batch_size: 3` is the **ceiling** on a 24 GB card for this corpus. It peaks
-  around 20 GB and climbs during the run; batch 4 OOMs.
-- `save_freq: 1` with `epochs_2nd: 10`. An even epoch count with `save_freq: 2`
-  silently discards the final epoch — only even indices are written.
-- `lambda_F0: 1.0`. Raising it does not buy pitch accuracy; a 2.5× increase moved
-  validation F0 by ~0.015, inside the run's own epoch-to-epoch jitter. Pitch level
-  is a voicepack calibration problem, not a loss-weighting one.
+**The lesson the guard encodes: a paired-data pipeline needs a check that the
+pairing survived, and it has to run on the file training actually reads.**
