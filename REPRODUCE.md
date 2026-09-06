@@ -49,7 +49,8 @@ It downloads `hexgrad/Kokoro-82M` and writes `training/kokoro_base.pth`
 
 ⚠️ Only the `convert-weights` subcommand. `prepare_training.py prepare` builds
 train/val lists with a German G2P and would overwrite the repaired lists you are
-about to copy in.
+about to copy in. The fork guards it — it refuses to run once lists exist — but
+do not go around the guard.
 
 ## 2. Bring in the dataset
 
@@ -148,18 +149,18 @@ not a tidy 1..4613 sequence — `1_368` is a real one — so do not renumber.
 `train_list.txt` is the **repaired** list. See `training/README.md` for what that
 word is doing; the bug that made it necessary is worth two minutes of your time.
 
-### Not the recipe's `prepare_dataset.py`
+### A note on the recipe's own dataset scripts
 
-⚠️ **Do not use `scripts/prepare_dataset.py` for this corpus.** It is upstream's,
-left untouched in the fork, and it is for a completely different dataset: German
-audio synthesized with Amazon Polly. It **downloads nothing** — no network code
-at all — it reads MP3s you already have in `./cache/*.mp3`, transcribes them with
-Whisper, filters on `TARGET_LANGUAGE = "de"`, and clusters speaker embeddings to
-separate the Polly voices.
+`scripts/prepare_dataset.py` **has been removed from the fork.** It processed
+German audio synthesized with Amazon Polly — Whisper transcription,
+`TARGET_LANGUAGE = "de"` filtering, speaker-embedding clustering — and downloaded
+nothing; it read `./cache/*.mp3`. None of that applies to a single-speaker corpus
+of real recordings that ships transcripts. It is still in
+[upstream](https://github.com/semidark/kikiri-tts) if you ever want it.
 
-None of that applies here. Alba is real recorded speech from one speaker, and it
-ships ground-truth transcripts, so there is nothing to transcribe, nothing to
-language-filter and nobody to cluster. `prepare_corpus.py` above replaces it.
+`scripts/prepare_training.py` stays, because `convert-weights` in step 1 is
+required. Its `prepare` subcommand is guarded and will refuse to overwrite the
+verified lists.
 
 If you do want to regenerate `phonemes.csv` from the corpus `txt/` files, the G2P
 config must match inference exactly, or the labels will not be the ones the
