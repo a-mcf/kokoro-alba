@@ -34,9 +34,9 @@ derogatory to the voice talent. These weights inherit that.
 The training recipe is [kikiri-tts](https://github.com/semidark/kikiri-tts) by
 semidark — a *German* Kokoro fine-tuning recipe. All the structural work is theirs.
 This project adapted it to English and to a Scottish speaker; those changes live
-as real commits in [a-mcf/kikiri-tts@alba-english](https://github.com/a-mcf/kikiri-tts/tree/alba-english),
+as real commits in [a-mcf/kikiri-tts](https://github.com/a-mcf/kikiri-tts),
 so upstream's history and authorship stay intact and our diff is
-[one link](https://github.com/semidark/kikiri-tts/compare/a12d041...a-mcf:kikiri-tts:alba-english).
+[one link](https://github.com/semidark/kikiri-tts/compare/a12d041...a-mcf:kikiri-tts:main).
 
 The corpus audio is **not** redistributed here. Fetch it from the DOI.
 
@@ -166,7 +166,7 @@ Two things worth carrying forward:
 
 kikiri-tts is a German recipe. Adapting it to English needed more than a config
 change, and those changes are committed to a fork —
-`git clone --branch alba-english --recurse-submodules https://github.com/a-mcf/kikiri-tts`
+`git clone --recurse-submodules https://github.com/a-mcf/kikiri-tts`
 is the whole setup. See [`training/README.md`](training/README.md). The one worth
 naming here:
 `StyleTTS2/kokoro_tb_utils.py` held German test sentences, phonemized with

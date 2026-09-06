@@ -2,15 +2,14 @@
 
 The recipe with our changes already applied lives in its own fork:
 
-**https://github.com/a-mcf/kikiri-tts** — branch `alba-english`
+**https://github.com/a-mcf/kikiri-tts** — it is `main`, nothing to check out
 
 ```bash
-git clone --branch alba-english --recurse-submodules \
-    https://github.com/a-mcf/kikiri-tts
+git clone --recurse-submodules https://github.com/a-mcf/kikiri-tts
 ```
 
 That is the whole setup. Nothing to copy in, nothing to patch. It pulls
-`a-mcf/StyleTTS2 @ alba-english` and `semidark/kokoro @ b96fef9` as submodules,
+`a-mcf/StyleTTS2 @ main` and `semidark/kokoro @ b96fef9` as submodules,
 both pinned.
 
 ## What this directory holds
@@ -35,8 +34,8 @@ Upstream is [`semidark/kikiri-tts`](https://github.com/semidark/kikiri-tts), a
 **German** Kokoro fine-tuning recipe. Everything structural is theirs. The full
 diff is one link each:
 
-- recipe: [`semidark/kikiri-tts@a12d041 … a-mcf:alba-english`](https://github.com/semidark/kikiri-tts/compare/a12d041...a-mcf:kikiri-tts:alba-english)
-- training code: [`semidark/StyleTTS2@b1956da … a-mcf:alba-english`](https://github.com/semidark/StyleTTS2/compare/b1956da...a-mcf:StyleTTS2:alba-english)
+- recipe: [`semidark/kikiri-tts@a12d041 … a-mcf:main`](https://github.com/semidark/kikiri-tts/compare/a12d041...a-mcf:kikiri-tts:main)
+- training code: [`semidark/StyleTTS2@b1956da … a-mcf:main`](https://github.com/semidark/StyleTTS2/compare/b1956da...a-mcf:StyleTTS2:main)
 
 **`configs/config_alba_ft.yml`** — English config for a 24 GB card.
 `batch_size: 3`, not 4. Batch 4 completes stage 1 and then dies partway through

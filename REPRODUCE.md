@@ -22,13 +22,12 @@ a **German** Kokoro fine-tuning recipe. Our English/Scottish changes are already
 committed to a fork, so this is one command:
 
 ```bash
-git clone --branch alba-english --recurse-submodules \
-    https://github.com/a-mcf/kikiri-tts
+git clone --recurse-submodules https://github.com/a-mcf/kikiri-tts
 export KIKIRI_ROOT=$PWD/kikiri-tts
 ```
 
 Nothing to copy in, nothing to patch. Submodules are pinned:
-`a-mcf/StyleTTS2 @ alba-english` and `semidark/kokoro @ b96fef9`.
+`a-mcf/StyleTTS2 @ main` and `semidark/kokoro @ b96fef9`.
 
 What changed from upstream, and why, is in
 [`training/README.md`](training/README.md) — with a one-click diff against

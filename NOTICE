@@ -54,15 +54,15 @@ TRAINING RECIPE
 
   Those changes are published as a fork rather than copied out, so upstream's
   commit history and authorship remain intact:
-    https://github.com/a-mcf/kikiri-tts       branch alba-english
-    forked from semidark/kikiri-tts @ a12d041
+    https://github.com/a-mcf/kikiri-tts       (main)
+    forked from semidark/kikiri-tts @ a12d041, one commit ahead
 
   StyleTTS2 — training architecture
   Source:  https://github.com/yl4579/StyleTTS2
   Fork:    https://github.com/semidark/StyleTTS2
-  Ours:    https://github.com/a-mcf/StyleTTS2  branch alba-english
-           (forked from semidark/StyleTTS2 @ b1956da; one commit, making the
-           TensorBoard preview sentences English)
+  Ours:    https://github.com/a-mcf/StyleTTS2  (main)
+           forked from semidark/StyleTTS2 @ b1956da; one commit, making the
+           TensorBoard preview sentences English
   License: MIT License
   Author:  Yinghao Aaron Li (yl4579)
 
