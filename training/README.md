@@ -13,6 +13,12 @@ clone it, then apply these.
 | `verify_alignment.py` | `checks/` | pre-flight guard on text↔audio pairing |
 | `test_alba.py` | `scripts/` | convert-and-synthesize a checkpoint |
 | `run_stage1.sh`, `run_stage2.sh` | anywhere | launchers; set `KIKIRI_ROOT` |
+| `train_list.txt`, `val_list.txt` | `training/` | the **repaired** splits, 4,383 + 230 |
+
+The two list files are the actual ones this fine-tune trained on, committed so you
+do not have to regenerate them. Their phoneme source is
+[`../dataset/phonemes.csv`](../dataset/). Format is
+`path|phonemes|speaker_id`; paths are relative to `dataset/audio/`.
 
 ## The German recipe leaks in more places than you would expect
 

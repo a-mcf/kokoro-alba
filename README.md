@@ -5,8 +5,10 @@ trained on the [Alba speech corpus](https://doi.org/10.7488/ds/2506) from CSTR a
 the University of Edinburgh, packaged so it runs on **stock `pip install kokoro`** —
 no fork, no vendored package, no `sys.path` insert.
 
-It is 24 kHz mono, CPU-viable (~312 MB resident, real-time-ish on 2 threads), and
-drops into anything that can shell out to a command.
+It is 24 kHz mono and runs on CPU at RTF 0.54 on two threads, in about 1.3 GB of
+RAM, with no network access and no base model download. See [SERVING.md](SERVING.md)
+before deploying it — the 5.7-second cold start is the thing that decides how you
+should run it.
 
 ```
 pip install kokoro==0.9.4 soundfile
@@ -42,7 +44,8 @@ The corpus audio is **not** redistributed here. Fetch it from the DOI.
 | `alba/` | the runtime. Drop `alba_stock.pth` in beside these and it works. |
 | `tools/` | checkpoint conversion, voicepack pitch scaling, load verification |
 | `calibration/` | the measurement scripts that produced the two shipped constants |
-| `training/` | diffs and configs against kikiri-tts, plus the pre-flight dataset guard |
+| `training/` | diffs and configs against kikiri-tts, the pre-flight guard, and the generated train/val lists |
+| `dataset/` | the phoneme and transcript CSVs this fine-tune was built from |
 | `samples/` | three renders, so you can hear it before installing anything |
 
 The 312 MB model file is **not in git** — it is attached to the
@@ -56,7 +59,8 @@ curl -L -o alba/alba_stock.pth \
 
 ## Using it
 
-Two entry points, same engine:
+Full deployment guide, with measured costs and the two ways this fails silently,
+is in [SERVING.md](SERVING.md). The short version — two entry points, same engine:
 
 ```bash
 # interactive
@@ -77,6 +81,10 @@ venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch
 venv/bin/pip install kokoro==0.9.4 soundfile
 venv/bin/python -m spacy download en_core_web_sm   # misaki needs it
 ```
+
+**You do not need the base Kokoro-82M weights**, despite `repo_id=` appearing in
+the scripts — verified by running with an empty HF cache and downloading nothing.
+espeak-ng ships inside the venv via `espeakng-loader`; no system package.
 
 The spaCy model is not optional — misaki does grapheme-to-phoneme conversion and
 requires it. A venv built without pip cannot self-download it and fails with
@@ -195,7 +203,10 @@ easier to parse than the real speaker on some clips.
 
 ## Reproducing it
 
-See [REPRODUCE.md](REPRODUCE.md).
+See [REPRODUCE.md](REPRODUCE.md). The generated artifacts are committed, not just
+described — `dataset/phonemes.csv`, `dataset/metadata.csv` and the repaired
+`training/{train,val}_list.txt` are all here, so reproducing this needs only the
+corpus audio from the DOI.
 
 ## License
 

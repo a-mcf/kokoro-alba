@@ -34,16 +34,27 @@ cp training/test_alba.py        "$KIKIRI_ROOT/scripts/"
 git -C "$KIKIRI_ROOT/StyleTTS2" apply "$OLDPWD/training/kokoro_tb_utils.english.patch"
 ```
 
-## 2. Prepare the dataset
+## 2. Bring in the dataset
 
-Use the recipe's own `scripts/prepare_dataset.py` and `scripts/prepare_training.py`
-to produce `dataset/audio/`, `dataset/metadata.csv`, `dataset/phonemes.csv`, and
-`training/{train,val}_list.txt`.
+**The generated text side is already in this repo** — you do not need to
+regenerate it. Copy it across and add the audio:
 
-Phonemize with **misaki `en.G2P(british=True)`** — that is what the shipped
-voicepack and both runtime scripts assume (`lang_code="b"`). Two of the recipe's
-prep scripts hardcode `EspeakG2P(language="de")`; they are inert on the English
-path but they are live traps if you edit around them.
+```bash
+cp dataset/metadata.csv dataset/phonemes.csv "$KIKIRI_ROOT/dataset/"
+cp training/train_list.txt training/val_list.txt "$KIKIRI_ROOT/training/"
+# then unpack the corpus audio from the DOI into:
+#   $KIKIRI_ROOT/dataset/audio/alba/
+```
+
+`train_list.txt` is the **repaired** list — see `training/README.md` for why that
+word is doing work.
+
+If you would rather rebuild it, use the recipe's `scripts/prepare_dataset.py` and
+`scripts/prepare_training.py`, and phonemize with **misaki `en.G2P(british=True)`**
+— that is what the shipped voicepack and both runtime scripts assume
+(`lang_code="b"`). Two of the recipe's prep scripts hardcode
+`EspeakG2P(language="de")`; they are inert on the English path but they are live
+traps if you edit around them.
 
 misaki's English phoneme strings contain literal capitals: `W A I Q` are
 /aʊ/ /eɪ/ /aɪ/ /əʊ/. That is not corruption. Do not "fix" it.
@@ -101,23 +112,31 @@ The config here uses `epochs_2nd: 10`, `save_freq: 1`.
 
 ## 5. Build the portable artifact
 
-Three steps, none of which need the GPU.
+One script, no GPU needed:
 
 ```bash
-# 1. training checkpoint -> Kokoro format (the recipe's own converter)
-python - <<'PY'
-import sys; sys.path[:0] = ["$KIKIRI_ROOT/scripts", "$KIKIRI_ROOT"]
-from test_inference import convert_checkpoint
-convert_checkpoint("$KIKIRI_ROOT/StyleTTS2/logs/kokoro-alba/epoch_2nd_00009.pth",
-                   "alba_kokoro.pth")
-PY
-
-# 2. rename weight-norm keys so stock PyPI kokoro can load it
-python tools/convert_to_stock.py alba_kokoro.pth alba/alba_stock.pth
-
-# 3. extract the voicepack -- n_samples=200
-python "$KIKIRI_ROOT/scripts/extract_voicepack.py" ...   # see recipe for its args
+python tools/build_artifact.py \
+    --kikiri-root "$KIKIRI_ROOT" \
+    --stage2 "$KIKIRI_ROOT/StyleTTS2/logs/kokoro-alba/epoch_2nd_00009.pth" \
+    --stage1 "$KIKIRI_ROOT/StyleTTS2/logs/kokoro-alba/first_stage.pth" \
+    --out-dir alba/
 ```
+
+It runs the recipe's `convert_checkpoint`, then `tools/convert_to_stock.py`, then
+the recipe's `extract_voicepack.py` at `--num-samples 200`, and copies
+`config.json` in alongside. Output: `alba_stock.pth`, `alba_voicepack.pt`,
+`config.json`.
+
+`--stage1` is passed through as `--style-encoder-model`: stage 2 training can
+degrade the style_encoder through spectral_norm buffer drift, so the extractor
+takes the timbre half from stage 1 and the prosody half from stage 2.
+
+✅ **The model half of this is exactly reproducible, and that was checked.**
+Re-running this script against `epoch_2nd_00009.pth` produces a checkpoint whose
+tensors are **identical to the shipped `alba_stock.pth`, 548 of 548**, and which
+verifies at 548 landed / 0 mismatched / 0 orphaned. The file's md5 differs, but
+only because `torch.save` serialization metadata is not stable — the weights are
+the same.
 
 Step 2 is the one that fails silently if skipped. See the README section on it.
 
@@ -131,6 +150,19 @@ Expect **548 landed, 0 mismatched, 0 orphaned**. It will also report ~140 model
 params the checkpoint did not cover — those are AdaLayerNorm `.norm` affine
 weights, default-initialised on every path including the known-good one. Normal,
 not a defect.
+
+⚠️ **The shipped voicepack is not bit-reproducible, and that is a property of the
+tooling, not a mistake here.** `alba/alba_voicepack.pt` was extracted through the
+audition path (`StyleTTS2/kokoro_tb_utils.py::extract_voicepack`), which calls
+`random.shuffle` with **no seed** — so which 200 clips it averaged is not
+recoverable. `scripts/extract_voicepack.py` seeds with `random.Random(42)` and *is*
+deterministic, but lands about 1% away: re-running it against the same checkpoint
+gives norms **1.3513 / 1.8507** against the shipped pack's **1.3550 / 1.8694**.
+
+The practical consequence: **the 0.35 pitch scale belongs to the shipped pack.** If
+you extract your own, re-derive the scale in step 6 rather than reusing the number.
+The shipped raw pack is committed at `alba/alba_voicepack.pt` if you would rather
+skip extraction entirely.
 
 Traps in this step, each of which fails unhelpfully:
 
