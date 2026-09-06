@@ -5,6 +5,7 @@ loss_F0 = l1_loss(F0_real, F0_fake)/10, so val F0 loss 2.712 == mean abs error
 of 27.1 in whatever units the pitch extractor emits. Measure those units.
 """
 import sys, os, torch, torchaudio, numpy as np, warnings, random
+import soundfile as sf
 warnings.filterwarnings("ignore")
 KIKIRI = os.environ.get("KIKIRI_ROOT", os.path.expanduser("~/kokoro_alba/kikiri-tts"))
 WORK   = os.environ.get("ALBA_WORK",   os.path.expanduser("~/kokoro_alba/export_proof"))
@@ -27,7 +28,8 @@ for ln in lines[:40]:
     wav_rel = ln.split("|")[0]
     p = f"{ROOT}/dataset/audio/{wav_rel}"
     try:
-        w, sr = torchaudio.load(p)
+        d, sr = sf.read(p, dtype="float32", always_2d=True)
+        w = torch.from_numpy(d.T)
     except Exception:
         continue
     if sr != 24000:

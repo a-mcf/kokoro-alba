@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Does the synth trail its pitch down at the end the way she does?"""
 import sys, os, glob, torch, torchaudio, numpy as np, warnings
+import soundfile as sf
 warnings.filterwarnings("ignore"); torch.set_num_threads(2)
 KIKIRI = os.environ.get("KIKIRI_ROOT", os.path.expanduser("~/kokoro_alba/kikiri-tts"))
 WORK   = os.environ.get("ALBA_WORK",   os.path.expanduser("~/kokoro_alba/export_proof"))
@@ -11,7 +12,8 @@ F0=load_F0_models(KIKIRI + "/StyleTTS2/Utils/JDC/bst.t7").eval()
 to_mel=torchaudio.transforms.MelSpectrogram(n_mels=80,n_fft=2048,win_length=1200,hop_length=300)
 
 def contour(p):
-    w,sr=torchaudio.load(p)
+    d,sr=sf.read(p, dtype="float32", always_2d=True)
+    w=torch.from_numpy(d.T)
     if sr!=24000: w=torchaudio.functional.resample(w,sr,24000)
     m=(torch.log(1e-5+to_mel(w.mean(0)).unsqueeze(0))-(-4))/4
     with torch.no_grad(): f,_,_=F0(m.unsqueeze(1))

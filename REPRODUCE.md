@@ -33,8 +33,30 @@ What changed from upstream, and why, is in
 [`training/README.md`](training/README.md) — with a one-click diff against
 `semidark/kikiri-tts@a12d041`.
 
-Then set up the training environment per the recipe's own `AGENTS.md` and
-`docs/TRAINING_GUIDE.md`, which remain the authority on the training machinery.
+Then build the training environment. The recipe's `docs/TRAINING_GUIDE.md` is the
+authority, but these are the three steps that actually bite, verified on a clean
+box 2026-09-06:
+
+```bash
+cd "$KIKIRI_ROOT"
+
+# 1. deps -- install from StyleTTS2's own requirements.txt, not a hand-list.
+#    A hand-list fails at the first training step with ModuleNotFoundError: einops_exts.
+python3.12 -m venv .venv
+.venv/bin/pip install torch torchaudio
+.venv/bin/pip install -r StyleTTS2/requirements.txt
+.venv/bin/pip install Cython tensorboard huggingface_hub "misaki[en]"
+
+# 2. build the alignment extension -- training imports it via StyleTTS2/utils.py
+cd StyleTTS2 && git clone https://github.com/resemble-ai/monotonic_align.git
+cd monotonic_align && ../../.venv/bin/python setup.py build_ext --inplace
+cd "$KIKIRI_ROOT"
+```
+
+⚠️ Set `HF_HOME` somewhere you control. Downloads land in `~/.cache/huggingface`
+by default, and a stale or unwritable path there surfaces as a bare
+`PermissionError` from `hf_hub_download` that looks nothing like a cache problem.
+The launcher scripts default it to `$KIKIRI_ROOT/../hf_cache`.
 
 Finally, build the base weights. Fine-tuning starts from Kokoro-82M converted to
 StyleTTS2's layout, and that file is gitignored, so you must generate it:
@@ -94,6 +116,9 @@ Now place the text side and convert the audio:
 
 ```bash
 cd /path/to/this/repo
+
+# the recipe gitignores dataset/ entirely, so a fresh clone has no such directory
+mkdir -p "$KIKIRI_ROOT/dataset"
 
 cp dataset/metadata.csv dataset/phonemes.csv "$KIKIRI_ROOT/dataset/"
 cp training/train_list.txt training/val_list.txt "$KIKIRI_ROOT/training/"

@@ -60,8 +60,10 @@ wavs = sorted(src.glob("*.wav"))
 print(f"source: {src}\n  {len(wavs)} wav files -> {out}")
 
 for i, w in enumerate(wavs, 1):
-    audio, sr = torchaudio.load(str(w))
-    audio = audio.mean(0, keepdim=True)
+    # soundfile rather than torchaudio.load: torchaudio 2.14 routes load()
+    # through TorchCodec, which is not in the recipe's dependency list.
+    data, sr = sf.read(str(w), dtype="float32", always_2d=True)
+    audio = torch.from_numpy(data.mean(axis=1)).unsqueeze(0)
     if sr != TARGET_SR:
         audio = torchaudio.functional.resample(audio, sr, TARGET_SR)
     sf.write(str(out / w.name), audio.squeeze(0).numpy(), TARGET_SR, subtype="PCM_16")

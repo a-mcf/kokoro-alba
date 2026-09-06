@@ -9,7 +9,8 @@ from models import load_F0_models
 F0=load_F0_models(KIKIRI + "/StyleTTS2/Utils/JDC/bst.t7").eval()
 to_mel=torchaudio.transforms.MelSpectrogram(n_mels=80,n_fft=2048,win_length=1200,hop_length=300)
 def stats(p):
-    w,sr=torchaudio.load(p)
+    d,sr=sf.read(p, dtype="float32", always_2d=True)
+    w=torch.from_numpy(d.T)
     if sr!=24000: w=torchaudio.functional.resample(w,sr,24000)
     dur=w.shape[-1]/24000
     m=(torch.log(1e-5+to_mel(w.mean(0)).unsqueeze(0))-(-4))/4
