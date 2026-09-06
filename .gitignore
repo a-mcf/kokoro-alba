@@ -1,0 +1,16 @@
+# the model ships as a release asset, not in git (312 MB)
+alba_stock.pth
+*.pth
+
+# renders and working output
+*.wav
+*.npy
+sweep/
+pitchcmp/
+clips/
+speed/
+
+venv/
+.venv/
+__pycache__/
+*.pyc

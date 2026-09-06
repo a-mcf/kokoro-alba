@@ -1,0 +1,65 @@
+diff --git a/kokoro_tb_utils.py b/kokoro_tb_utils.py
+index 2c0ec89..390b571 100644
+--- a/kokoro_tb_utils.py
++++ b/kokoro_tb_utils.py
+@@ -15,30 +15,40 @@ import torchaudio
+ 
+ logger = logging.getLogger(__name__)
+ 
+-# German phonetic test sentences — same set as scripts/test_inference.py
++# English test sentences, matched to the Alba (Scottish) corpus domain.
++# These MUST be phonemized the same way training/train_list.txt was --
++# misaki en.G2P(british=True). The original set was GERMAN, graded through
++# espeak-de, i.e. a foreign language through a different phoneme alphabet, so
++# every TensorBoard preview in every run was meaningless. Fixed 2026-08-30.
+ TEST_SENTENCES = [
+-    "Schön, dass du da bist. Die Bücher liegen auf dem großen Tisch.",
+-    "Ich mache mich auf den Weg nach Aachen, um auch nachts wach zu sein.",
+-    "Er aß die Maße in der Straße, aber das Maß war voll.",
+-    "Zwei weiße Zwerge zwängen sich zwischen zwei Zweige.",
+-    "Ein Pfau pflegt seine Federn an der Pfütze.",
+-    "Warum hast du das getan? Das ist ja unglaublich!",
+-    "Das kostet genau einhundertdreiundzwanzig Millionen Euro.",
++    "The Edinburgh fog curled round the old castle gates at dawn.",
++    "She walked along the foreshore, her scarf streaming in the salt wind.",
++    "Aye, it's a bonnie morning for a walk by the water, is it not?",
++    "The hills stood quiet beneath a sky the colour of polished steel.",
++    "Between the fields and the river, the summer light went golden and slow.",
++    "Why on earth did you do that? It is absolutely unbelievable!",
++    "That comes to exactly one hundred and twenty-three million pounds.",
+ ]
+ 
+ 
+ def prepare_test_tokens(text_cleaner):
+-    """Convert German test sentences to token ID lists via espeak G2P.
++    """Convert English test sentences to token IDs via misaki en.G2P(british=True).
+ 
+     Returns a list of (display_text, token_ids) tuples. Sentences that
+     fail G2P or produce sequences longer than 510 tokens are skipped.
+     """
+     try:
+-        from misaki import espeak
++        from misaki import en
+ 
+-        g2p = espeak.EspeakG2P(language="de")
++        try:
++            from misaki import espeak as _espeak
++
++            _fallback = _espeak.EspeakFallback(british=True)
++        except Exception:
++            _fallback = None
++        g2p = en.G2P(trf=False, british=True, fallback=_fallback)
+     except Exception as e:
+-        logger.warning(f"Could not load German G2P for TensorBoard inference: {e}")
++        logger.warning(f"Could not load English G2P for TensorBoard inference: {e}")
+         return []
+ 
+     result = []
+@@ -46,7 +56,6 @@ def prepare_test_tokens(text_cleaner):
+         try:
+             g2p_out = g2p(text)
+             ipa = g2p_out[0] if isinstance(g2p_out, tuple) else g2p_out
+-            ipa = ipa.replace("\u028f", "y")  # ʏ → y fixup
+             token_ids = text_cleaner(ipa)
+             if not token_ids or len(token_ids) > 510:
+                 logger.warning(

@@ -1,0 +1,74 @@
+kokoro-alba
+Copyright 2026 Alex McFarland
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+This project is a fine-tune of Kokoro-82M and a portable runtime for it. It
+stands on other people's work. Credit, in the order it matters:
+
+================================================================================
+VOICE DATA — the recordings the voice was learned from
+================================================================================
+
+  Alba speech corpus
+  Valentini-Botinhao, Cassia; Yamagishi, Junichi. (2019).
+  Alba speech corpus [dataset]. University of Edinburgh.
+  The Centre for Speech Technology Research (CSTR).
+  https://doi.org/10.7488/ds/2506
+
+  License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+  ** NON-STANDARD TERM — read it. ** The corpus license explicitly preserves
+  the voice talent's moral rights, including the right of integrity, and
+  forbids uses that would be derogatory to the voice talent. Plain CC BY does
+  not say this; this dataset adds it. Anything built on these weights inherits
+  that condition.
+
+  The audio is NOT redistributed here. Get it from the DOI above.
+
+================================================================================
+BASE MODEL
+================================================================================
+
+  Kokoro-82M
+  Source:  https://huggingface.co/hexgrad/Kokoro-82M
+  License: Apache License 2.0
+  Author:  hexgrad
+
+  The weights published by this project are a fine-tune of Kokoro-82M and
+  remain under Apache 2.0.
+
+================================================================================
+TRAINING RECIPE
+================================================================================
+
+  kikiri-tts — the fine-tuning recipe this work adapted
+  Source:  https://github.com/semidark/kikiri-tts
+  License: Apache License 2.0
+  Author:  semidark
+
+  kikiri-tts is a GERMAN Kokoro fine-tuning recipe. Everything structural here
+  is theirs: dataset preparation, voicepack extraction, the two-stage training
+  driver, the training guide. This project adapted it to English and to a
+  Scottish speaker. The files under training/ are diffs and configs against
+  that recipe, not a replacement for it.
+
+  kokoro — inference package
+  Source:  https://github.com/hexgrad/kokoro
+  License: Apache License 2.0
+
+  StyleTTS2 — training architecture
+  Source:  https://github.com/yl4579/StyleTTS2
+  Fork:    https://github.com/semidark/StyleTTS2
+  License: MIT License
+  Author:  Yinghao Aaron Li (yl4579)
+
+================================================================================
+PRIOR ART ON THE SAME SPEAKER
+================================================================================
+
+  Piper publishes en_GB-alba-medium, trained on the same corpus, under MIT:
+  https://github.com/rhasspy/piper
+
+  It is a useful reference point. Piper's voice uses espeak en-gb-x-rp at
+  22050 Hz; this one uses misaki en.G2P(british=True) at 24000 Hz.
