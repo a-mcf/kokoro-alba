@@ -13,6 +13,8 @@ clone it, then apply these.
 | `verify_alignment.py` | `checks/` | pre-flight guard on text↔audio pairing |
 | `test_alba.py` | `scripts/` | convert-and-synthesize a checkpoint |
 | `run_stage1.sh`, `run_stage2.sh` | anywhere | launchers; set `KIKIRI_ROOT` |
+| `prepare_corpus.py` | run in place | corpus download -> 24 kHz training audio |
+| `check_corpus.py` | run in place | confirms the lists resolve against that audio |
 | `train_list.txt`, `val_list.txt` | `training/` | the **repaired** splits, 4,383 + 230 |
 
 The two list files are the actual ones this fine-tune trained on, committed so you
@@ -57,6 +59,48 @@ It exists because a full 10-epoch stage 2 run — 13 hours — was wasted on a
 phonemes**. Training converged. Validation loss looked survivable. The output was
 crisp audio in the correct voice, and it was not English. The only signal in the
 logs was `Dur` and `F0` losses stalling high.
+
+### The bug, because it will happen to someone else
+
+The list builder shuffled two parallel lists to make the train/val split:
+
+```python
+rng = random.Random(42)
+rng.shuffle(meta_rows)   # permutation A
+rng.shuffle(pho_rows)    # permutation B -- the generator has advanced!
+```
+
+One seeded generator, two `shuffle` calls, **two different permutations**. Seeding
+makes a run repeatable; it does not make consecutive draws identical. After those
+two lines `meta_rows[i]` and `pho_rows[i]` describe different clips, and zipping
+them produces a filename from one utterance with the phonemes of another — for
+every row.
+
+The author had noticed the risk and written a fix immediately below:
+
+```python
+idx = list(range(len(meta_rows)))
+random.Random(42).shuffle(idx)
+meta_rows = [meta_rows[i] for i in idx]
+pho_rows  = [pho_rows[i] for i in idx]
+```
+
+That is the correct pattern — shuffle an index, apply it to both. It just ran
+*after* the damage, on lists that were already desynchronised, so it permuted the
+mismatch rather than repairing it.
+
+Two things made this survive to a 13-hour run:
+
+- **`metadata.csv` and `phonemes.csv` were both fine.** Each row kept its own
+  filename with its own content, so every check on those files passed. Only the
+  zip of the two lists was wrong. Measured stage by stage: metadata↔audio +0.970,
+  phonemes↔audio +0.972, phonemes↔metadata +0.994, and **train_list↔source −0.061**.
+- **The TensorBoard previews could not have caught it**, because they were
+  rendering German sentences through espeak-de at the time — see above.
+
+The general lesson is the one `verify_alignment.py` encodes: **a paired-data
+pipeline needs a check that the pairing survived, and it has to run on the file
+training actually reads**, not on the inputs that fed it.
 
 Two independent checks, because either alone can be fooled:
 

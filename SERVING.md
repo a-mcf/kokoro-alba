@@ -42,18 +42,37 @@ so do not strip it out.
 
 ## Cost
 
-| | |
-|---|---|
-| peak RSS | **1.28 GB** |
-| cold start | **5.7s** — 3.9s importing torch and kokoro, 1.0s loading the model, 0.7s building the pipeline |
-| warm synthesis | RTF 0.54 at 2 threads |
-| model file | 312 MB on disk |
+The headline number depends on when you measure, so here is the whole curve —
+`VmRSS` from `/proc/self/status`, CPU-only, 2 threads:
 
-Note the memory figure: **1.28 GB resident, not 312 MB.** The checkpoint is 312 MB
-on disk, but torch plus spaCy plus the loaded model peaks well above that. Size the
-box for 1.5 GB.
+| stage | RSS | peak so far |
+|---|---|---|
+| bare interpreter | 8 MB | 8 MB |
+| `import torch` | 212 MB | 212 MB |
+| `import kokoro` | 375 MB | 375 MB |
+| **after loading the model** | **1010 MB** | **1231 MB** |
+| after `gc.collect()` + `malloc_trim` | 918 MB | 1231 MB |
+| pipeline + voicepack ready | 1031 MB | 1231 MB |
+| after 5 syntheses | 1223 MB | 1359 MB |
+| after 5, then gc + trim | 1073 MB | 1359 MB |
 
-Thread scaling is close to linear up to 4:
+**Working set is roughly 0.9–1.1 GB; transient peaks reach 1.25–1.35 GB.**
+
+The 1231 MB spike at load is exactly what it looks like: `torch.load` materialises
+the 312 MB checkpoint while `KModel` is simultaneously holding its own 312 MB of
+parameters. It is transient — a `gc.collect()` plus `malloc_trim(0)` after startup
+gives back about 90 MB, and another 150 MB after a few syntheses, so a
+long-running server settles near 1 GB rather than growing without bound.
+
+For scale, the model itself is **81.8M parameters = 312 MB in fp32**. Everything
+above that is torch's own footprint (212 MB before you load anything), spaCy and
+misaki, and allocator slack.
+
+**Size a box for 1.5 GB per worker.** The earlier claim that this needs ~312 MB
+resident was wrong — that was the file size mislabelled as memory.
+
+Cold start is **5.7s** — 3.9s importing torch and kokoro, 1.0s loading the model,
+0.7s building the pipeline. Thread scaling is close to linear up to 4:
 
 | threads | wall for a 3.92s utterance | RTF |
 |---|---|---|
@@ -112,7 +131,7 @@ the training labels were built with. A different `lang_code` feeds the model
 phonemes it never saw.
 
 `KPipeline` is not thread-safe in any way this project has verified. Serialize
-calls, or run one process per worker and pay 1.28 GB each.
+calls, or run one process per worker and pay ~1 GB each.
 
 ## Wiring into an agent gateway
 

@@ -36,25 +36,46 @@ git -C "$KIKIRI_ROOT/StyleTTS2" apply "$OLDPWD/training/kokoro_tb_utils.english.
 
 ## 2. Bring in the dataset
 
-**The generated text side is already in this repo** — you do not need to
-regenerate it. Copy it across and add the audio:
+**The text side is already in this repo** — transcripts, phonemes and the repaired
+splits. You only need to add audio.
+
+Download **`plain.zip`** (1019 MB) from https://doi.org/10.7488/ds/2506 and unzip
+it anywhere. It expands a deep AFS path ending in
+`Release_Alba/plain/{wav,txt}/`; leave it as it is.
 
 ```bash
 cp dataset/metadata.csv dataset/phonemes.csv "$KIKIRI_ROOT/dataset/"
 cp training/train_list.txt training/val_list.txt "$KIKIRI_ROOT/training/"
-# then unpack the corpus audio from the DOI into:
-#   $KIKIRI_ROOT/dataset/audio/alba/
+
+python training/prepare_corpus.py \
+    --corpus-root /path/to/unzipped/plain \
+    --out "$KIKIRI_ROOT/dataset/audio/alba"
+
+python training/check_corpus.py --audio-root "$KIKIRI_ROOT/dataset/audio"
 ```
 
-`train_list.txt` is the **repaired** list — see `training/README.md` for why that
-word is doing work.
+`prepare_corpus.py` resamples 48 kHz → 24 kHz mono 16-bit and **keeps the corpus
+filenames unchanged** — the committed CSVs and lists key directly onto the
+corpus's own stems (verified: the two sorted stem lists are identical). Stems are
+not a tidy 1..4613 sequence — `1_368` is a real one — so do not renumber.
 
-If you would rather rebuild it, use the recipe's `scripts/prepare_dataset.py` and
-`scripts/prepare_training.py`, and phonemize with **misaki `en.G2P(british=True)`**
-— that is what the shipped voicepack and both runtime scripts assume
-(`lang_code="b"`). Two of the recipe's prep scripts hardcode
-`EspeakG2P(language="de")`; they are inert on the English path but they are live
-traps if you edit around them.
+`train_list.txt` is the **repaired** list. See `training/README.md` for what that
+word is doing; the bug that made it necessary is worth two minutes of your time.
+
+⚠️ **Do not use the recipe's `scripts/prepare_dataset.py` here.** That is a
+Polly-MP3-plus-Whisper transcription pipeline for German — it filters on
+`TARGET_LANGUAGE = "de"` and expects a `cache/` of MP3s. The Alba corpus ships
+ground-truth transcripts, so none of that applies.
+
+If you do want to regenerate `phonemes.csv` from the corpus `txt/` files, the G2P
+config must match inference exactly, or the labels will not be the ones the
+runtime feeds the model:
+
+```python
+from misaki import en, espeak
+g2p = en.G2P(trf=False, british=True,
+             fallback=espeak.EspeakFallback(british=True), unk="")
+```
 
 misaki's English phoneme strings contain literal capitals: `W A I Q` are
 /aʊ/ /eɪ/ /aɪ/ /əʊ/. That is not corruption. Do not "fix" it.
