@@ -36,25 +36,109 @@ What changed from upstream, and why, is in
 Then set up the training environment per the recipe's own `AGENTS.md` and
 `docs/TRAINING_GUIDE.md`, which remain the authority on the training machinery.
 
+Finally, build the base weights. Fine-tuning starts from Kokoro-82M converted to
+StyleTTS2's layout, and that file is gitignored, so you must generate it:
+
+```bash
+cd "$KIKIRI_ROOT" && python scripts/prepare_training.py convert-weights
+```
+
+It downloads `hexgrad/Kokoro-82M` and writes `training/kokoro_base.pth`
+(81.8M params), which `configs/config_alba_ft.yml` references as
+`pretrained_model`. Training fails immediately without it.
+
+⚠️ Only the `convert-weights` subcommand. `prepare_training.py prepare` builds
+train/val lists with a German G2P and would overwrite the repaired lists you are
+about to copy in.
+
 ## 2. Bring in the dataset
 
 **The text side is already in this repo** — transcripts, phonemes and the repaired
 splits. You only need to add audio.
 
-Download **`plain.zip`** (1019 MB) from https://doi.org/10.7488/ds/2506 and unzip
-it anywhere. It expands a deep AFS path ending in
-`Release_Alba/plain/{wav,txt}/`; leave it as it is.
+Download **`plain.zip`** (1019 MB) from https://doi.org/10.7488/ds/2506. That is
+the ~4-hour "plain" read set; the `fast`, `clear_c` and `clear_h` archives are a
+different speaking style and are not used here.
+
+### A worked example
+
+Concrete paths, so you can check each step against something:
 
 ```bash
+export KIKIRI_ROOT=~/kokoro-alba-repro/kikiri-tts    # from step 1
+export CORPUS=~/kokoro-alba-repro/corpus
+
+mkdir -p "$CORPUS" && cd "$CORPUS"
+unzip ~/Downloads/plain.zip
+```
+
+After the unzip you should have exactly this — it is a deep AFS path, which is
+normal, and you should **not** flatten it:
+
+```
+~/kokoro-alba-repro/corpus/
+└── afs/inf.ed.ac.uk/group/cstr/projects/scar/SCRIPT/Release_Alba/plain/
+    ├── wav/    3585.wav  747.wav  1179.wav  1_368.wav  …   (4613 files, 48 kHz)
+    └── txt/    3585.txt  747.txt  1179.txt  1_368.txt  …   (4613 files)
+```
+
+Two quick checks before going further:
+
+```bash
+find "$CORPUS" -name '*.wav' | wc -l      # expect 4613
+find "$CORPUS" -name '*.txt' | wc -l      # expect 4613
+```
+
+Now place the text side and convert the audio:
+
+```bash
+cd /path/to/this/repo
+
 cp dataset/metadata.csv dataset/phonemes.csv "$KIKIRI_ROOT/dataset/"
 cp training/train_list.txt training/val_list.txt "$KIKIRI_ROOT/training/"
 
 python training/prepare_corpus.py \
-    --corpus-root /path/to/unzipped/plain \
+    --corpus-root "$CORPUS" \
     --out "$KIKIRI_ROOT/dataset/audio/alba"
+```
 
+`--corpus-root` can be anywhere above the `wav/` directory; the script finds it.
+Expect it to print the source it picked, then progress every 500 files:
+
+```
+source: /home/you/kokoro-alba-repro/corpus/afs/.../Release_Alba/plain/wav
+  4613 wav files -> /home/you/kokoro-alba-repro/kikiri-tts/dataset/audio/alba
+  500/4613
+  …
+wrote 4613 files at 24000 Hz mono PCM_16
+```
+
+### Validate it
+
+```bash
 python training/check_corpus.py --audio-root "$KIKIRI_ROOT/dataset/audio"
 ```
+
+A good run looks like this, and these are the actual numbers from the dataset
+this voice trained on:
+
+```
+train_list.txt   rows=4383  missing=0     mispaired=0     r=+0.968  ok
+val_list.txt     rows=230   missing=0     mispaired=0     r=+0.971  ok
+
+Corpus OK.
+```
+
+It exits non-zero and prints `REFUSING to certify this dataset` if anything is
+off, so you can gate a launcher on it. What the columns mean:
+
+- **`missing`** — list rows with no file on disk. Non-zero means `--out` did not
+  match `dataset/audio/alba`, or the unzip was incomplete.
+- **`mispaired`** — rows whose phonemes disagree with `dataset/phonemes.csv`.
+  Should be 0. If it is 4383, see the bug in `training/README.md`.
+- **`r`** — correlation of phoneme-string length against audio duration.
+  **+0.95-ish is right**; near **0** means the text and audio are not paired at
+  all. Fails below +0.90.
 
 `prepare_corpus.py` resamples 48 kHz → 24 kHz mono 16-bit and **keeps the corpus
 filenames unchanged** — the committed CSVs and lists key directly onto the
@@ -64,11 +148,18 @@ not a tidy 1..4613 sequence — `1_368` is a real one — so do not renumber.
 `train_list.txt` is the **repaired** list. See `training/README.md` for what that
 word is doing; the bug that made it necessary is worth two minutes of your time.
 
-⚠️ **Do not use the recipe's `scripts/prepare_dataset.py` here.** That is a
-Polly-MP3-plus-Whisper transcription pipeline for German — it filters on
-`TARGET_LANGUAGE = "de"` and expects a `cache/` of MP3s. The Alba corpus ships
-ground-truth transcripts, so none of that applies. (It is upstream's, left
-untouched in the fork.)
+### Not the recipe's `prepare_dataset.py`
+
+⚠️ **Do not use `scripts/prepare_dataset.py` for this corpus.** It is upstream's,
+left untouched in the fork, and it is for a completely different dataset: German
+audio synthesized with Amazon Polly. It **downloads nothing** — no network code
+at all — it reads MP3s you already have in `./cache/*.mp3`, transcribes them with
+Whisper, filters on `TARGET_LANGUAGE = "de"`, and clusters speaker embeddings to
+separate the Polly voices.
+
+None of that applies here. Alba is real recorded speech from one speaker, and it
+ships ground-truth transcripts, so there is nothing to transcribe, nothing to
+language-filter and nobody to cluster. `prepare_corpus.py` above replaces it.
 
 If you do want to regenerate `phonemes.csv` from the corpus `txt/` files, the G2P
 config must match inference exactly, or the labels will not be the ones the
