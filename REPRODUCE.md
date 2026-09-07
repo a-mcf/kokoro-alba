@@ -319,7 +319,19 @@ Traps in this step, each of which fails unhelpfully:
 ## 6. Calibrate
 
 Two constants, both derived by measurement against the speaker's own recordings.
-**Re-derive them for every checkpoint** — they do not transfer.
+**Re-derive them for every checkpoint.**
+
+📌 That said, here is a sanity check rather than a promise: two independently
+trained models — the shipped run and a full clean-room reproduction — **both**
+landed on **0.35** and **speed 1.25**. The reproduction measured +3.09 semitones
+sharp before correction, identical to the original's +3.09, even though its raw
+prosodic norm differed (1.635 vs 1.869). So the offset looks like a property of
+this speaker and recipe rather than of a particular training run.
+
+Use that as an expectation, not a shortcut: measure, and if your scale comes out
+far from 0.35, treat it as a signal that something upstream is wrong rather than
+as a new constant. And note the norms differed while the scale did not, so you
+cannot infer the scale from the norm.
 
 These scripts need a **third environment**, and this catches people out. They
 import `kokoro` (to synthesize) *and* StyleTTS2's `models` (for the JDCNet pitch

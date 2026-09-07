@@ -185,9 +185,14 @@ certify a dataset whose text and audio are not actually paired. It exists becaus
 alba_voicepack_pitchfix.pt       the raw pack is +3.1 semitones sharp
 ```
 
-Both were **measured against the real speaker's recordings**, not chosen by taste,
-and both are **specific to this checkpoint**. If you retrain, re-derive them with
-the scripts in `calibration/`. Do not carry the numbers across.
+Both were **measured against the real speaker's recordings**, not chosen by taste.
+If you retrain, re-derive them with the scripts in `calibration/` rather than
+assuming they carry across.
+
+Empirically they did carry: a full clean-room reproduction of this training run
+landed on the same 0.35 and the same 1.25, and measured the same +3.09 semitone
+offset before correction. Treat that as an expected value to check your own
+measurement against — not as permission to skip measuring.
 
 ## Known limits
 
