@@ -321,7 +321,20 @@ Traps in this step, each of which fails unhelpfully:
 Two constants, both derived by measurement against the speaker's own recordings.
 **Re-derive them for every checkpoint** — they do not transfer.
 
-Set the paths the scripts read:
+These scripts need a **third environment**, and this catches people out. They
+import `kokoro` (to synthesize) *and* StyleTTS2's `models` (for the JDCNet pitch
+extractor, via `torchaudio`). The runtime venv from SERVING.md has the first and
+not the second; the training venv has the second and not the first. Easiest fix
+is to add `kokoro` to the training venv:
+
+```bash
+"$KIKIRI_ROOT/.venv/bin/pip" install kokoro==0.9.4
+```
+
+⚠️ That downgrades `torchaudio` (2.14 → 2.11 when tested). Harmless once training
+is finished, but do not do it to a venv mid-run.
+
+Then set the paths the scripts read:
 
 ```bash
 export KIKIRI_ROOT=/path/to/kikiri-tts
